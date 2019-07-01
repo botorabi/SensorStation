@@ -1,0 +1,291 @@
+	<!--NOTE The html head part is handled dynamically for adapting base href for handling x-forwarded-prefix ! -->
+	<meta charset="utf-8">
+	<title>Sensor Station</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" type="image/x-icon" href="favicon.png">
+	<style>
+		html, body {
+			height: 99%;
+			width: 95%;
+			max-width: 1000px;
+			margin: auto;
+		 	font-family: "Libre Franklin", "Helvetica Neue", helvetica, arial, sans-serif;
+		}
+		.head {
+			background-color: #3f51b5;
+			border-top-left-radius: 10px;
+			border-top-right-radius: 10px;
+			text-align: left;
+			color: white;
+			margin-top: 10px;
+			margin-bottom: 5px;
+			padding: 20px;
+			box-shadow: 0px 2px 5px grey;
+			display: flex;
+			flex-direction: row;
+		}
+		.footer {
+			background-color: #3f51b5;
+			border-bottom-left-radius: 10px;
+			border-bottom-right-radius: 10px;
+			text-align: left;
+			color: white;
+			margin-top: 5px;
+			margin-bottom: 10px;
+			padding: 20px;
+			box-shadow: 0px 2px 5px grey;
+			display: flex;
+			flex-direction: row;
+		}
+		.footer-text {
+			font-size: 0.8em;
+		}
+		.main {
+			margin: 0 auto;
+			text-align: center;
+			border: 0px solid lightgrey;
+			border-radius: 0px;
+			padding: 20px;
+			background-color: white;
+			box-shadow: 0px 2px 5px grey;
+			color: black;
+		}
+		.title {
+			font-size: 1.8em;
+			font-weight: bold;
+		}
+		.subtitle {
+			font-size: 1.3em;
+			font-weight: bold;
+			margin-bottom: 0.8em;
+		}
+		.time-stamp {
+			font-size: small;
+		}
+		.spacer-block {
+			flex: 1;
+		}
+		.sensor-container {
+			display: flex;
+			flex-direction: row;
+		}
+		.sensor-block {
+			min-width: 240px;
+			flex: 0 1 auto;
+			border: 1px solid grey;
+			border-radius: 5px;
+			background-color: #F5F5F5;
+			padding: 10px;
+			margin: 10px;
+			text-align: left;
+			box-shadow: 2px 2px 5px grey;
+		}
+		.sensor-name {
+			padding: 5px;
+			font-weight: bold;
+		}
+		.sensor-value {
+			display: flex;
+			padding: 0 5px 5px 5px;
+			margin-bottom: 4px;
+		}
+		.sensor-curve {
+			width: 100%;
+		}
+		.canvas-container {
+			flex: 1;
+			background-color: white;
+			padding: 10px;
+			border: 1px solid lightgray;
+			border-radius: 5px;
+		}
+		.view-mode {
+			background-color: #555;
+			border: 1px solid #333;
+			border-radius: 3px;
+			width: 50px;
+			color: white;
+			box-shadow: 2px 2px 2px gray;
+			font-size: 12px;
+		}
+		.view-mode:disabled {
+			background-color: lightgray;
+		}
+
+		@media(max-width: 800px) {
+			.sensor-container {
+				flex-direction: column;
+			}
+			.sensor-block {
+				flex: 0 1 auto;
+			}
+			.title {
+				font-size: 1.3em;
+			}
+			.subtitle {
+				font-size: 1em;
+			}
+		}
+	</style>
+	<script>
+		const MAX_SENSOR_VALUE = 4096;
+		const VIEW_WEEK = "Week";
+		const VIEW_DAY = "Day";
+		const JSON_URL = "sensors.json";
+
+		function requestJSON(callback) {
+			var xmlhttp = new XMLHttpRequest();
+			var url = JSON_URL;
+			xmlhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						  var sensors = JSON.parse(this.responseText);
+						  callback(sensors);
+					}
+			};
+			xmlhttp.open("GET", url, true);
+			xmlhttp.send();
+		}
+
+		function drawCurve(canvas, history, weekView) {
+			const beginEntries = weekView ? 0 : history.length - 24;
+			const endEntries = history.length;
+			var ctx = canvas.getContext('2d');
+
+			ctx.fillStyle = '#3f51b5';
+			const barWidth = (canvas.width - 25) / (endEntries - beginEntries);
+			const canvasHeight = canvas.height - 25;
+			for(var i = beginEntries; i < endEntries; i++) {
+				var barHeight = 0;
+				if (history[i] > 0) {
+					barHeight = ((MAX_SENSOR_VALUE - history[i]) / MAX_SENSOR_VALUE) * canvasHeight;
+				}
+				ctx.fillRect((i - beginEntries) * barWidth + 5, canvasHeight - barHeight, barWidth - 1, barHeight);
+			}
+		}
+
+		function drawAxis(canvas, weekView) {
+			var ctx = canvas.getContext('2d');
+			ctx.fillStyle = 'black';
+			const xSteps = weekView ? 7 : 4;
+			for(var step = 1; step <= xSteps; step++) {
+				ctx.fillText("-" + (weekView ? step : step * 6), canvas.width - 30 - step * (canvas.width - 35) / xSteps, canvas.height - 15);
+			}
+			ctx.fillText(weekView ? "Days" : "Hours", canvas.width / 2, canvas.height - 5);
+
+			ctx.beginPath();
+				ctx.lineWidth = "1";
+				ctx.strokeStyle = "black";
+				ctx.moveTo(canvas.width - 15, 0);
+				ctx.lineTo(canvas.width - 15, canvas.height - 25);
+				ctx.lineTo(5, canvas.height - 25);
+			ctx.stroke();
+
+			ctx.save();
+				ctx.translate(canvas.width - 5, canvas.height * 2 / 5);
+				ctx.rotate(-Math.PI/2);
+				ctx.textAlign = "center";
+				ctx.fillText("Max 100%", 0, 0);
+			ctx.restore();
+		}
+
+		function drawHistory(canvasId, history, weekView) {
+			var canvas = document.getElementById(canvasId);
+			var ctx = canvas.getContext('2d');
+
+			ctx.imageSmoothingEnabled = false;
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			drawCurve(canvas, history, weekView);
+			drawAxis(canvas, weekView);
+		}
+
+		function updateSensors() {
+			requestJSON(function(response) {
+				const COUNT_SENSORS = response.sensors.length;
+				for (var i = 0; i < COUNT_SENSORS; i++) {
+					var elemName = document.getElementById("name" + (i+1));
+					var elemValue = document.getElementById("value" + (i+1));
+					var elemViewMode = document.getElementById("view-mode" + (i+1));
+					elemName.innerHTML = response.sensors[i].name;
+					elemValue.innerHTML = "" + (((MAX_SENSOR_VALUE - response.sensors[i].value) / MAX_SENSOR_VALUE) * 100).toFixed(0) + "%";
+					var weekView = elemViewMode.innerHTML === VIEW_WEEK;
+					elemViewMode.disabled = false;
+					drawHistory("canvas" + (i+1), response.sensors[i].history, weekView);
+				}
+			});
+		}
+
+		function periodicUpdate() {
+			updateSensors();
+
+			var date = new Date();
+			var dateString = "" + date.getDate() + "." + date.getMonth() + "." + date.getFullYear();
+			dateString += "  " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+			var elemUpdateTime = document.getElementById("update-time");
+			elemUpdateTime.innerHTML = dateString;
+
+			window.setTimeout(function() { periodicUpdate(); }, 1000 * 60 *60);
+		}
+
+		function onToggleView(button) {
+			button.innerHTML = button.innerHTML === VIEW_WEEK ? VIEW_DAY : VIEW_WEEK;
+			button.disabled = true;
+			updateSensors();
+		}
+
+		function init() {
+			periodicUpdate();
+		}
+	</script>
+</head>
+<body onload="init();">
+	<div class="head">
+		<span class="title">Sensor Station</span>
+		<span class="spacer-block"></span>
+		<img src="favicon.png" title="Sensor Station" width="40" height="40">
+	</div>
+	<div class="main">
+		<div class="subtitle">Moisture Sensors</div>
+		<div class="time-stamp">(Last Update: <span id="update-time">-</span>)</div>
+		<br>
+		<div class="sensor-container">
+			<div class="spacer-block"></div>
+			<div class="sensor-block">
+				<div class="sensor-name"><span id="name1"></span></div>
+				<div class="sensor-value">
+					Current Value:&nbsp;<span id="value1"></span>
+					<span class="spacer-block"></span>
+					<button class="view-mode" id="view-mode1" type="button" onClick="onToggleView(this)">Day</button>
+				</div>
+				<div class="canvas-container" id="canvas-container1"><canvas class="sensor-curve" id="canvas1"></canvas></div>
+			</div>
+			<div class="sensor-block">
+				<div class="sensor-name"><span id="name2"></span></div>
+				<div class="sensor-value">
+					Current Value:&nbsp;<span id="value2"></span>
+					<span class="spacer-block"></span>
+					<button class="view-mode" id="view-mode2" type="button" onClick="onToggleView(this)">Day</button>
+				</div>
+				<div class="canvas-container" id="canvas-container2"><canvas class="sensor-curve" id="canvas2"></canvas></div>
+			</div>
+			<div class="spacer-block"></div>
+		</div>
+		<div class="sensor-container">
+			<div class="spacer-block"></div>
+			<div class="sensor-block">
+				<div class="sensor-name"><span id="name3"></span></div>
+				<div class="sensor-value">
+					Current Value:&nbsp;<span id="value3"></span>
+					<span class="spacer-block"></span>
+					<button class="view-mode" id="view-mode3" type="button" onClick="onToggleView(this)">Day</button>
+				</div>
+				<div class="canvas-container" id="canvas-container3"><canvas class="sensor-curve" id="canvas3"></canvas></div>
+			</div>
+			<div class="spacer-block"></div>
+		</div>
+	</div>
+	<div class="footer">
+		<span class="footer-text">Copyright 2019, A. Botorabi</span>
+	</div>
+
