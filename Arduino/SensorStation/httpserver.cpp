@@ -47,6 +47,11 @@ void HTTPServer::removeAllSensors()
   sensors = nullptr;  
 }
 
+void HTTPServer::setVersionInfo(const String& versionInfo)
+{
+  this->versionInfo = versionInfo;
+}
+
 void HTTPServer::start(int port)
 {
   stop();
@@ -114,7 +119,9 @@ void HTTPServer::handleRoot(AsyncWebServerRequest* request)
 void HTTPServer::handleSensorJSON(AsyncWebServerRequest* request)
 {
   String json;
-  json = "{\n  \"sensors\": [\n";
+  json = "{\n";
+  json += "  \"version\": \"" + versionInfo + "\",\n";
+  json += "  \"sensors\": [\n";
   for (int i = 0; i < countSensors; i++)
   {
     if (i > 0)

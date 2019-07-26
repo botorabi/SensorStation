@@ -33,6 +33,7 @@ class Sensor
 
     /**
      * Get the sensor value history. The values buffer must be at least of length HISTORY_MAX_ENTRIES.
+     * Value -1 means the sensor value entry does not exist yet.
      */
     void            history(short* values);
 

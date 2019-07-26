@@ -24,6 +24,8 @@ class Core
 
     void              setSplashText(const String& text);
 
+    void              setAppVersion(const String& version);
+
     void              initialize(int httpPort = 80, int displayOffTimeout = 10000);
 
     void              update();
@@ -59,6 +61,8 @@ class Core
     void              updateSensorDisplay();
 
     String            splashText;
+
+    String            appVersion;
 
     Sensor**          sensors {nullptr};
     int               countSensors {0};

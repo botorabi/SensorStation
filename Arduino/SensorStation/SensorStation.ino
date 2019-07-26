@@ -12,7 +12,7 @@
 
 
 static const String APP_NAME("SensorStation");
-static const String APP_VERSION("0.1.0");
+static const String APP_VERSION("0.2.0");
 
 
 class App: public Buttons::Handler
@@ -29,6 +29,7 @@ class App: public Buttons::Handler
     void initialize()
     {
       core.setSplashText(APP_NAME + "\n\nVersion: " + APP_VERSION + "\n");
+      core.setAppVersion(APP_VERSION);
       core.initialize(HTTP_PORT, DISPLAY_OFF_TIMEOUT);
       buttons.setHandler(this, INPUT_PIN_WPS);
       buttons.setHandler(this, INPUT_PIN_DISPLAY);

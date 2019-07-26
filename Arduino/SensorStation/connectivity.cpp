@@ -15,7 +15,7 @@
 #define MAX_CONNECTION_RETRIES  5
 
 #define ESP_WPS_MODE            WPS_TYPE_PBC
-#define ESP_MANUFACTURER        "ESPRESSIF"
+#define ESP_MANUFACTURER        "Sensor Station"
 #define ESP_MODEL_NUMBER        "ESP32"
 #define ESP_MODEL_NAME          "ESPRESSIF IOT"
 #define ESP_DEVICE_NAME         "Sensor Station"
@@ -37,6 +37,11 @@ bool Connectivity::isConnected() const
   return WiFi.status() == WL_CONNECTED;
 }
 
+void Connectivity::enable(bool en)
+{
+  WiFi.enableSTA(en);
+}
+
 bool Connectivity::connect()
 {
   uint8_t status;
@@ -45,6 +50,7 @@ bool Connectivity::connect()
   restoreCredentials(ssid, psk);
 
   WiFi.mode(WIFI_MODE_STA);
+  WiFi.onEvent(Connectivity::wifiSystemEvent);
 
   if (ssid.length() > 0)
   {
@@ -100,9 +106,12 @@ void Connectivity::restoreCredentials(String& ssid, String& psk)
 void Connectivity::startWPSConnection()
 {
   storeCredentials("", "");
+  enable(true);
+
   WiFi.disconnect();
   WiFi.mode(WIFI_MODE_STA);
-  WiFi.onEvent(Connectivity::wifiEvent);
+  WiFi.setAutoReconnect(true);
+  WiFi.onEvent(Connectivity::wifiWPSEvent);
 
   Serial.println("Starting WPS");
 
@@ -136,19 +145,23 @@ void Connectivity::setupWPS()
   strcpy(wpsConfiguration.factory_info.device_name, ESP_DEVICE_NAME);
 }
 
-void Connectivity::wifiEvent(WiFiEvent_t event, system_event_info_t info)
+void Connectivity::wifiWPSEvent(WiFiEvent_t event, system_event_info_t info)
 {
   switch(event)
   {
-    case SYSTEM_EVENT_STA_START:
-      Serial.println("Station Mode Started");
-      break;
     case SYSTEM_EVENT_STA_GOT_IP:
       Serial.printf("Storing credentials for SSID: %s\n", WiFi.SSID().c_str());
       storeCredentials(WiFi.SSID(), WiFi.psk());
-      Serial.println("Connected to :" + String(WiFi.SSID()));
-      Serial.print("Got IP: ");
-      Serial.println(WiFi.localIP());
+      //! NOTE Actually we just need to remove the WPS event registry, but it is not
+      //       possible while dispatching an event. So we go the easierst way and reboot.
+      Serial.println("Restarting the system...");
+      delay(1000);
+      ESP.restart();
+      break;
+    case SYSTEM_EVENT_STA_STOP:
+      Serial.println("WiFi client was stopped, attempting reconnection");
+      delay(10000);
+      WiFi.reconnect();
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
       Serial.println("Disconnected from station, attempting reconnection");
@@ -172,6 +185,37 @@ void Connectivity::wifiEvent(WiFiEvent_t event, system_event_info_t info)
       break;
     case SYSTEM_EVENT_STA_WPS_ER_PIN:
       Serial.println("WPS_PIN ???");
+      break;
+    default:
+      break;
+  }
+}
+
+void Connectivity::wifiSystemEvent(WiFiEvent_t event, system_event_info_t info)
+{
+  switch(event)
+  {
+    case SYSTEM_EVENT_STA_START:
+      Serial.println("Station Mode Started");
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      Serial.println("Connected to: " + String(WiFi.SSID()));
+      Serial.print("Got IP: ");
+      Serial.println(WiFi.localIP());
+      break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+      Serial.println("WiFi client connected");
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      Serial.println("WiFi client  disconnected from station");
+      break;
+    case SYSTEM_EVENT_STA_LOST_IP:
+      Serial.println("WiFi client lost IP, attempting reconnection...");
+      delay(2000);
+      WiFi.reconnect();
+      break;      
+    case SYSTEM_EVENT_STA_STOP:
+      Serial.println("WiFi client was stopped");
       break;
     default:
       break;

@@ -24,6 +24,11 @@ class Connectivity
     bool              isConnected() const;
 
     /**
+     * Enable/disable WiFi
+     */
+    void              enable(bool en);
+
+    /**
      * Try to connect to WiFi network and return false if it fails.
      * This method call is blocking.
      */
@@ -50,7 +55,9 @@ class Connectivity
 
     void              setupWPS();
 
-    static void       wifiEvent(WiFiEvent_t event, system_event_info_t info);
+    static void       wifiWPSEvent(WiFiEvent_t event, system_event_info_t info);
+
+    static void       wifiSystemEvent(WiFiEvent_t event, system_event_info_t info);
 };
 
 #endif /* CONNECTIVITY_H */
