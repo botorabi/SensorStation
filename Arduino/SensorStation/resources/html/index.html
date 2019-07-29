@@ -91,10 +91,7 @@
 		}
 		.sensor-curve {
 			width: 100%;
-			cursor: grab;
-		}
-		.sensor-curve-grabbing {
-			cursor: grabbing;
+			cursor: inherit;
 		}
 		.sensor-curve-pointer {
 			cursor: pointer;
@@ -113,12 +110,39 @@
 			width: 50px;
 			color: white;
 			box-shadow: 2px 2px 2px gray;
-			font-size: 12px;
+			cursor: pointer;
 		}
 		.view-mode:disabled {
 			background-color: lightgray;
 		}
-
+		.view-mode:focus {
+			outline: 0;
+		}
+		.view-mode-big {
+			width: 94px;
+		}
+		.view-mode-inc {
+			background-color: #555;
+			border: 1px solid #333;
+			border-radius: 3px;
+			width: 20px;
+			color: white;
+			box-shadow: 2px 2px 2px gray;
+			margin-left: 2px;
+			margin-right: 2px;
+			cursor: pointer;
+		}
+		.view-mode-inc:focus {
+			outline: 0;
+		}
+		.button-block {
+			margin-top: 10px;
+			display: flex;
+			flex-direction: row;
+		}
+		.hide-element {
+			display: none;
+		}
 		@media(max-width: 800px) {
 			.sensor-container {
 				flex-direction: column;
@@ -209,84 +233,23 @@
 			return event.currentTarget;
 		}
 
-		function calculateMouseDragPosition(canvas, event) {
-			var canvasRect = canvas.getBoundingClientRect();
-			var scaleX = canvas.width / canvasRect.width;
-			var scaleY = canvas.height / canvasRect.height;
-			return {x: event.clientX * scaleX, y: event.clientY * scaleY};
-		}
-
-		function calculateMouseDragDelta(canvas, event) {
-			var canvasRect = canvas.getBoundingClientRect();
-			var scaleX = canvas.width / canvasRect.width;
-			var scaleY = canvas.height / canvasRect.height;
-			return {x: (canvas.mouseDragPosition.x - event.clientX) * scaleX, y: (canvas.mouseDragPosition.y - event.clientY) * scaleY};
-		}
-
-		function handleCanvasDragging(event) {
-			var canvas = getCanvasFromEvent(event);
-			if (canvas.viewModeWeek) {
-				return;
-			}
-			var dragDelta = calculateMouseDragDelta(canvas, event);
-			var dayOffset = Math.floor((dragDelta.x / canvas.width) * 7);
-			canvas.mouseDragDayOffset = (canvas.mouseDragInitialDayOffset - dayOffset) % 7;
-			if (canvas.mouseDragDayOffset < 0) {
-				canvas.mouseDragDayOffset += 7;
-			}
-			redrawCanvas(canvas);
-
-			var ctx = canvas.getContext('2d');
-			ctx.save();
-				ctx.fillStyle = 'white';
-				ctx.fillRect(canvas.width - 10, canvas.height - 10, 100, 10);
-				ctx.fillStyle = 'black';
-				ctx.textAlign = 'right';
-				var dayText = canvas.mouseDragDayOffset === 0 ? "Today" : "Day: " + (-(canvas.mouseDragDayOffset));
-				ctx.fillText(dayText, canvas.width - 20, canvas.height - 1);
-			ctx.restore();
-		}
-
 		function handleCanvasMouseMove(event) {
-			var canvas = getCanvasFromEvent(event);
-			canvas.mouseDragging = !!canvas.mouseDown;
-
-			if (canvas.mouseDragging) {
-				handleCanvasDragging(event);
-			}
-			else {
-				handleBarSelection(event);
-			}
+			handleBarSelection(event);
 		}
 
 		function handleCanvasMouseDown(event) {
 			var canvas = getCanvasFromEvent(event);
 			canvas.mouseDown = true;
-			canvas.mouseDragPosition = calculateMouseDragPosition(canvas, event);
-
-			if (!canvas.viewModeWeek) {
-				canvas.classList.add("sensor-curve-grabbing");
-			}
 		}
 
 		function handleCanvasMouseUp(event) {
 			var canvas = getCanvasFromEvent(event);
 			canvas.mouseDown = false;
-			canvas.mouseDragInitialDayOffset = canvas.mouseDragDayOffset;
-
-			if (!canvas.viewModeWeek) {
-				canvas.classList.remove("sensor-curve-grabbing");
-			}
 		}
 
 		function handleCanvasMouseLeave(event) {
 			var canvas = getCanvasFromEvent(event);
 			canvas.mouseDown = false;
-			canvas.mouseDragInitialDayOffset = canvas.mouseDragDayOffset;
-		}
-
-		function getValueInPercent(value) {
-			return (MAX_SENSOR_VALUE - value) / MAX_SENSOR_VALUE;
 		}
 
 		function getOrCreateCanvasBars(canvas, numBars) {
@@ -300,10 +263,14 @@
 			return canvas["bars"];
 		}
 
+		function getValueInPercent(value) {
+			return (MAX_SENSOR_VALUE - value) / MAX_SENSOR_VALUE;
+		}
+
 		function drawCurve(canvas) {
 			var history = canvas.sensorHistory;
 			var weekView = canvas.viewModeWeek;
-			var dayOffset = canvas.mouseDragDayOffset ? canvas.mouseDragDayOffset + 1 : 1;
+			var dayOffset = canvas.dayOffset ? canvas.dayOffset + 1 : 1;
 			const beginEntries = weekView ? 0 : history.length - (24 * dayOffset);
 			const endEntries = weekView ? history.length : history.length - (24 * (dayOffset - 1));
 			var ctx = canvas.getContext('2d');
@@ -359,6 +326,18 @@
 			ctx.restore();
 		}
 
+		function drawDayDisplay(canvas) {
+			var ctx = canvas.getContext('2d');
+			ctx.save();
+				ctx.fillStyle = 'white';
+				ctx.fillRect(canvas.width - 10, canvas.height - 10, 100, 10);
+				ctx.fillStyle = 'black';
+				ctx.textAlign = 'right';
+				var dayText = canvas.dayOffset === 0 ? "Today" : "Day: " + (-(canvas.dayOffset));
+				ctx.fillText(dayText, canvas.width - 20, canvas.height - 1);
+			ctx.restore();
+		}
+
 		function clearCanvas(canvas) {
 			var ctx = canvas.getContext('2d');
 			ctx.imageSmoothingEnabled = false;
@@ -371,19 +350,21 @@
 			clearCanvas(canvas);
 			drawCurve(canvas);
 			drawAxis(canvas);
+			if (!canvas.viewModeWeek) {
+				drawDayDisplay(canvas);
+			}
 		}
 
 		function drawHistory(canvasId, history, weekView) {
 			var canvas = document.getElementById(canvasId);
-			canvas.mouseDragInitialDayOffset = 0;
-			canvas.mouseDragDayOffset = 0;
+			canvas.dayOffset = 0;
 			canvas.sensorHistory = history;
 			canvas.viewModeWeek = weekView;
 			redrawCanvas(canvas);
 		}
 
 		function setAppVersion(version) {
-			var v = document.getElementById("app-version").innerHTML = "Version " + version;
+			document.getElementById("app-version").innerHTML = "Version " + version;
 		}
 
 		function updateSensors() {
@@ -420,12 +401,43 @@
 			window.setTimeout(function() { periodicUpdate(); }, 1000 * 60 *60);
 		}
 
+		function showIncrementButtons(id, show) {
+			var incButton = document.getElementById("view-mode-inc" + id);
+			var decButton = document.getElementById("view-mode-dec" + id);
+			if (show) {
+				incButton.classList.remove("hide-element");
+				decButton.classList.remove("hide-element");
+			}
+			else {
+				incButton.classList.add("hide-element");
+				decButton.classList.add("hide-element");
+			}
+		}
+
 		function onToggleView(button) {
-			button.innerHTML = button.innerHTML === VIEW_WEEK ? VIEW_DAY : VIEW_WEEK;
 			var id = button.id.substr("view-mode".length);
+			var viewWeek = button.innerHTML == VIEW_WEEK;
+			button.innerHTML = viewWeek ? VIEW_DAY : VIEW_WEEK;
+			if (viewWeek) {
+				button.classList.remove("view-mode-big");
+				showIncrementButtons(id, true);
+			}
+			else {
+				button.classList.add("view-mode-big");
+				showIncrementButtons(id, false);
+			}
 			var canvas = document.getElementById("canvas" + id);
-			canvas.mouseDragDayOffset = 0;
 			canvas.viewModeWeek = !canvas.viewModeWeek;
+			redrawCanvas(canvas);
+		}
+
+		function onIncrementDay(button, increment) {
+			var id = button.id.substr("view-mode-xxx".length);
+			var canvas = document.getElementById("canvas" + id);
+			canvas.dayOffset = (canvas.dayOffset - increment) % 7;
+			if (canvas.dayOffset < 0) {
+				canvas.dayOffset += 7;
+			}
 			redrawCanvas(canvas);
 		}
 
@@ -451,18 +463,30 @@
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value1"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode1" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container1"><canvas class="sensor-curve" id="canvas1"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc1" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode1" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec1" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
 			<div class="sensor-block" id="sensors">
 				<div class="sensor-name"><span id="name2"></span></div>
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value2"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode2" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container2"><canvas class="sensor-curve" id="canvas2"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc2" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode2" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec2" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
 			<div class="spacer-block"></div>
 		</div>
@@ -473,9 +497,15 @@
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value3"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode3" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container3"><canvas class="sensor-curve" id="canvas3"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc3" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode3" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec3" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
 			<div class="spacer-block"></div>
 		</div>
