@@ -91,6 +91,10 @@
 		}
 		.sensor-curve {
 			width: 100%;
+			cursor: inherit;
+		}
+		.sensor-curve-pointer {
+			cursor: pointer;
 		}
 		.canvas-container {
 			flex: 1;
@@ -106,12 +110,39 @@
 			width: 50px;
 			color: white;
 			box-shadow: 2px 2px 2px gray;
-			font-size: 12px;
+			cursor: pointer;
 		}
 		.view-mode:disabled {
 			background-color: lightgray;
 		}
-
+		.view-mode:focus {
+			outline: 0;
+		}
+		.view-mode-big {
+			width: 94px;
+		}
+		.view-mode-inc {
+			background-color: #555;
+			border: 1px solid #333;
+			border-radius: 3px;
+			width: 20px;
+			color: white;
+			box-shadow: 2px 2px 2px gray;
+			margin-left: 2px;
+			margin-right: 2px;
+			cursor: pointer;
+		}
+		.view-mode-inc:focus {
+			outline: 0;
+		}
+		.button-block {
+			margin-top: 10px;
+			display: flex;
+			flex-direction: row;
+		}
+		.hide-element {
+			display: none;
+		}
 		@media(max-width: 800px) {
 			.sensor-container {
 				flex-direction: column;
@@ -129,8 +160,10 @@
 	</style>
 	<script>
 		const MAX_SENSOR_VALUE = 4096;
-		const VIEW_WEEK = "Week";
-		const VIEW_DAY = "Day";
+		const BAR_COLOR = '#3f51b5';
+		const BAR_SELECTION_COLOR = '#ff1111';
+		const VIEW_WEEK = 'Week';
+		const VIEW_DAY = 'Day';
 		const JSON_URL = "sensors.json";
 
 		function requestJSON(callback) {
@@ -146,24 +179,129 @@
 			xmlhttp.send();
 		}
 
-		function drawCurve(canvas, history, weekView) {
-			const beginEntries = weekView ? 0 : history.length - 24;
-			const endEntries = history.length;
+		function hitCheckBars(canvasBars, x, y) {
+			for (var i = 0; i < canvasBars.length; i++) {
+				var geom = canvasBars[i];
+				if ( (x >= geom.x) && (x <= geom.x + geom.width) &&
+						 (y >= geom.y) && (y <= geom.y + geom.height) ) {
+					return geom;
+				}
+			}
+			return null;
+		}
+
+		function handleBarSelection(event) {
+			var canvas = event.currentTarget;
+			var canvasRect = canvas.getBoundingClientRect();
+			var canvasBars = canvas.bars;
+			var scaleX = canvas.width / canvasRect.width;
+			var scaleY = canvas.height / canvasRect.height;
+			var x = (event.clientX -canvasRect.left) * scaleX;
+			var y = (event.clientY -canvasRect.top) * scaleY;
 			var ctx = canvas.getContext('2d');
 
-			ctx.fillStyle = '#3f51b5';
-			const barWidth = (canvas.width - 25) / (endEntries - beginEntries);
-			const canvasHeight = canvas.height - 25;
-			for(var i = beginEntries; i < endEntries; i++) {
-				var barHeight = 0;
-				if (history[i] > 0) {
-					barHeight = ((MAX_SENSOR_VALUE - history[i]) / MAX_SENSOR_VALUE) * canvasHeight;
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, canvas.height - 10, 100, 10);
+			ctx.fillStyle = 'black';
+			ctx.textAlign = 'left';
+			var hitBarGeometry = hitCheckBars(canvasBars, x, y);
+			if(hitBarGeometry) {
+				ctx.fillText("Value: " + hitBarGeometry.value.toFixed(0) + "%", 5, canvas.height - 1);
+				ctx.fillStyle = BAR_SELECTION_COLOR;
+				ctx.fillRect(hitBarGeometry.x + 1.0, hitBarGeometry.y + 1.0, hitBarGeometry.width - 2.0, hitBarGeometry.height - 2.0);
+
+				if (canvas.lastHitBarGeometry && (canvas.lastHitBarGeometry !== hitBarGeometry)) {
+					ctx.fillStyle = BAR_COLOR;
+					ctx.fillRect(canvas.lastHitBarGeometry.x, canvas.lastHitBarGeometry.y, canvas.lastHitBarGeometry.width, canvas.lastHitBarGeometry.height);
 				}
-				ctx.fillRect((i - beginEntries) * barWidth + 5, canvasHeight - barHeight, barWidth - 1, barHeight);
+				canvas.lastHitBarGeometry = hitBarGeometry;
+				canvas.classList.add("sensor-curve-pointer");
+			}
+			else {
+				if (canvas.lastHitBarGeometry) {
+					ctx.fillStyle = BAR_COLOR;
+					ctx.fillRect(canvas.lastHitBarGeometry.x, canvas.lastHitBarGeometry.y, canvas.lastHitBarGeometry.width, canvas.lastHitBarGeometry.height);
+				}
+				canvas.lastHitBarGeometry = null;
+				canvas.classList.remove("sensor-curve-pointer");
 			}
 		}
 
-		function drawAxis(canvas, weekView) {
+		function getCanvasFromEvent(event) {
+			event.preventDefault();
+			event.stopPropagation();
+			return event.currentTarget;
+		}
+
+		function handleCanvasMouseMove(event) {
+			handleBarSelection(event);
+		}
+
+		function handleCanvasMouseDown(event) {
+			var canvas = getCanvasFromEvent(event);
+			canvas.mouseDown = true;
+		}
+
+		function handleCanvasMouseUp(event) {
+			var canvas = getCanvasFromEvent(event);
+			canvas.mouseDown = false;
+		}
+
+		function handleCanvasMouseLeave(event) {
+			var canvas = getCanvasFromEvent(event);
+			canvas.mouseDown = false;
+		}
+
+		function getOrCreateCanvasBars(canvas, numBars) {
+			if (!canvas["bars"] || (canvas["bars"].length != numBars)) {
+				canvas["bars"] = new Array(numBars);
+				canvas.addEventListener("mousemove", handleCanvasMouseMove);
+				canvas.addEventListener("mousedown", handleCanvasMouseDown);
+				canvas.addEventListener("mouseup", handleCanvasMouseUp);
+				canvas.addEventListener("mouseleave", handleCanvasMouseLeave);
+			}
+			return canvas["bars"];
+		}
+
+		function getValueInPercent(value) {
+			return (MAX_SENSOR_VALUE - value) / MAX_SENSOR_VALUE;
+		}
+
+		function drawCurve(canvas) {
+			var history = canvas.sensorHistory;
+			var weekView = canvas.viewModeWeek;
+			var dayOffset = canvas.dayOffset ? canvas.dayOffset + 1 : 1;
+			const beginEntries = weekView ? 0 : history.length - (24 * dayOffset);
+			const endEntries = weekView ? history.length : history.length - (24 * (dayOffset - 1));
+			var ctx = canvas.getContext('2d');
+
+			ctx.fillStyle = BAR_COLOR;
+			const barWidth = Math.max((canvas.width - 25) / (endEntries - beginEntries), 1);
+			const canvasHeight = canvas.height - 25;
+			var canvasBars = getOrCreateCanvasBars(canvas, endEntries - beginEntries);
+			for(var i = beginEntries; i < endEntries; i++) {
+				var barHeight = 0;
+				var valueInPercent = -1;
+				if (history[i] >= 0) {
+					valueInPercent = getValueInPercent(history[i]);
+					barHeight = valueInPercent * canvasHeight;
+				}
+
+				var canvasBarInfo = {
+					x: (i - beginEntries) * barWidth + 5.0,
+					y: canvasHeight - barHeight,
+					width: Math.max(barWidth - 1.0, 1.0),
+					height: barHeight,
+					value: valueInPercent >= 0 ? valueInPercent * 100 : -1
+				};
+
+				ctx.fillRect(canvasBarInfo.x, canvasBarInfo.y, canvasBarInfo.width, canvasBarInfo.height);
+				canvasBars[i - beginEntries] = canvasBarInfo;
+			}
+		}
+
+		function drawAxis(canvas) {
+			var weekView = canvas.viewModeWeek;
 			var ctx = canvas.getContext('2d');
 			ctx.fillStyle = 'black';
 			const xSteps = weekView ? 7 : 4;
@@ -188,20 +326,50 @@
 			ctx.restore();
 		}
 
-		function drawHistory(canvasId, history, weekView) {
-			var canvas = document.getElementById(canvasId);
+		function drawDayDisplay(canvas) {
 			var ctx = canvas.getContext('2d');
+			ctx.save();
+				ctx.fillStyle = 'white';
+				ctx.fillRect(canvas.width - 10, canvas.height - 10, 100, 10);
+				ctx.fillStyle = 'black';
+				ctx.textAlign = 'right';
+				var dayText = canvas.dayOffset === 0 ? "Today" : "Day: " + (-(canvas.dayOffset));
+				ctx.fillText(dayText, canvas.width - 20, canvas.height - 1);
+			ctx.restore();
+		}
 
+		function clearCanvas(canvas) {
+			var ctx = canvas.getContext('2d');
 			ctx.imageSmoothingEnabled = false;
 			ctx.fillStyle = 'white';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 
-			drawCurve(canvas, history, weekView);
-			drawAxis(canvas, weekView);
+		function redrawCanvas(canvas) {
+			canvas.lastHitBarGeometry = null;
+			clearCanvas(canvas);
+			drawCurve(canvas);
+			drawAxis(canvas);
+			if (!canvas.viewModeWeek) {
+				drawDayDisplay(canvas);
+			}
+		}
+
+		function drawHistory(canvasId, history, weekView) {
+			var canvas = document.getElementById(canvasId);
+			canvas.dayOffset = 0;
+			canvas.sensorHistory = history;
+			canvas.viewModeWeek = weekView;
+			redrawCanvas(canvas);
+		}
+
+		function setAppVersion(version) {
+			document.getElementById("app-version").innerHTML = "Version " + version;
 		}
 
 		function updateSensors() {
 			requestJSON(function(response) {
+				setAppVersion(response.version);
 				const COUNT_SENSORS = response.sensors.length;
 				for (var i = 0; i < COUNT_SENSORS; i++) {
 					var elemName = document.getElementById("name" + (i+1));
@@ -216,22 +384,61 @@
 			});
 		}
 
+		function getTwoDigitString(number) {
+			if (number < 10) {
+				return "0" + number;
+			}
+			return "" + number;
+		}
+
 		function periodicUpdate() {
 			updateSensors();
-
 			var date = new Date();
 			var dateString = "" + date.getDate() + "." + date.getMonth() + "." + date.getFullYear();
-			dateString += "  " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+			dateString += "  " + getTwoDigitString(date.getHours()) + ":" + getTwoDigitString(date.getMinutes()) + ":" + getTwoDigitString(date.getSeconds());
 			var elemUpdateTime = document.getElementById("update-time");
 			elemUpdateTime.innerHTML = dateString;
-
 			window.setTimeout(function() { periodicUpdate(); }, 1000 * 60 *60);
 		}
 
+		function showIncrementButtons(id, show) {
+			var incButton = document.getElementById("view-mode-inc" + id);
+			var decButton = document.getElementById("view-mode-dec" + id);
+			if (show) {
+				incButton.classList.remove("hide-element");
+				decButton.classList.remove("hide-element");
+			}
+			else {
+				incButton.classList.add("hide-element");
+				decButton.classList.add("hide-element");
+			}
+		}
+
 		function onToggleView(button) {
-			button.innerHTML = button.innerHTML === VIEW_WEEK ? VIEW_DAY : VIEW_WEEK;
-			button.disabled = true;
-			updateSensors();
+			var id = button.id.substr("view-mode".length);
+			var viewWeek = button.innerHTML == VIEW_WEEK;
+			button.innerHTML = viewWeek ? VIEW_DAY : VIEW_WEEK;
+			if (viewWeek) {
+				button.classList.remove("view-mode-big");
+				showIncrementButtons(id, true);
+			}
+			else {
+				button.classList.add("view-mode-big");
+				showIncrementButtons(id, false);
+			}
+			var canvas = document.getElementById("canvas" + id);
+			canvas.viewModeWeek = !canvas.viewModeWeek;
+			redrawCanvas(canvas);
+		}
+
+		function onIncrementDay(button, increment) {
+			var id = button.id.substr("view-mode-xxx".length);
+			var canvas = document.getElementById("canvas" + id);
+			canvas.dayOffset = (canvas.dayOffset - increment) % 7;
+			if (canvas.dayOffset < 0) {
+				canvas.dayOffset += 7;
+			}
+			redrawCanvas(canvas);
 		}
 
 		function init() {
@@ -243,7 +450,7 @@
 	<div class="head">
 		<span class="title">Sensor Station</span>
 		<span class="spacer-block"></span>
-		<img src="favicon.png" title="Sensor Station" width="40" height="40">
+		<img src="favicon.png" title="Title Image" width="40" height="40">
 	</div>
 	<div class="main">
 		<div class="subtitle">Moisture Sensors</div>
@@ -251,41 +458,60 @@
 		<br>
 		<div class="sensor-container">
 			<div class="spacer-block"></div>
-			<div class="sensor-block">
+			<div class="sensor-block" id="sensors">
 				<div class="sensor-name"><span id="name1"></span></div>
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value1"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode1" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container1"><canvas class="sensor-curve" id="canvas1"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc1" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode1" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec1" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
-			<div class="sensor-block">
+			<div class="sensor-block" id="sensors">
 				<div class="sensor-name"><span id="name2"></span></div>
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value2"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode2" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container2"><canvas class="sensor-curve" id="canvas2"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc2" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode2" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec2" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
 			<div class="spacer-block"></div>
 		</div>
 		<div class="sensor-container">
 			<div class="spacer-block"></div>
-			<div class="sensor-block">
+			<div class="sensor-block" id="sensors">
 				<div class="sensor-name"><span id="name3"></span></div>
 				<div class="sensor-value">
 					Current Value:&nbsp;<span id="value3"></span>
 					<span class="spacer-block"></span>
-					<button class="view-mode" id="view-mode3" type="button" onClick="onToggleView(this)">Day</button>
 				</div>
 				<div class="canvas-container" id="canvas-container3"><canvas class="sensor-curve" id="canvas3"></canvas></div>
+				<div class="button-block">
+					<span class="spacer-block"></span>
+					<button class="view-mode-inc" id="view-mode-inc3" type="button" onClick="onIncrementDay(this, -1)">&lt;</button>
+					<button class="view-mode" id="view-mode3" type="button" onClick="onToggleView(this)">Day</button>
+					<button class="view-mode-inc" id="view-mode-dec3" type="button" onClick="onIncrementDay(this, 1)">&gt;</button>
+					<span class="spacer-block"></span>
+				</div>
 			</div>
 			<div class="spacer-block"></div>
 		</div>
 	</div>
 	<div class="footer">
 		<span class="footer-text">Copyright 2019, A. Botorabi</span>
+		<span class="spacer-block"></span>
+		<span class="footer-text" id="app-version"></span>
 	</div>
-

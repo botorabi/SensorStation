@@ -24,6 +24,8 @@ class HTTPServer
 
     void        removeAllSensors();
 
+    void        setVersionInfo(const String& versionInfo);
+
     void        start(int port);
 
     bool        isRunning() const;
@@ -31,14 +33,6 @@ class HTTPServer
     void        stop();
 
   protected:
-
-    AsyncWebServer*         webServer {nullptr};
-
-    Sensor**                sensors {nullptr};
-
-    String                  indexFileContent;
-
-    int                     countSensors {0};
 
     String                  extractBaseRefFromXHostHeader(AsyncWebServerRequest* request) const;
 
@@ -49,6 +43,16 @@ class HTTPServer
     void                    handleSensorJSON(AsyncWebServerRequest* request);
 
     void                    handleFavIcon(AsyncWebServerRequest* request);
+
+    AsyncWebServer*         webServer {nullptr};
+
+    Sensor**                sensors {nullptr};
+
+    String                  indexFileContent;
+
+    int                     countSensors {0};
+
+    String                  versionInfo;
 };
 
 #endif /* HTTPSERVER_H */

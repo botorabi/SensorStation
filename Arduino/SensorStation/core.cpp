@@ -34,6 +34,11 @@ void Core::setSplashText(const String& text)
   splashText = text;
 }
 
+void Core::setAppVersion(const String& version)
+{
+  appVersion = version;
+}
+
 void Core::initialize(int httpPort, int displayOffTimeout)
 {
   this->httpPort = httpPort;
@@ -104,6 +109,7 @@ void Core::setupWiFi()
     display.setStatusText("No Networking!");
     display.setFooterText("**No WiFi Connection**");
     Serial.println("WiFi connection failed, try WPS");
+    connectivity.enable(false);
   }
   else
   {
@@ -145,6 +151,7 @@ void Core::updateHTTPServer()
       display.setFooterText(String("IP: ") + connectivity.localIP().toString());
 
       Serial.println("Starting HTTP Server");
+      httpServer.setVersionInfo(appVersion);
       httpServer.start(httpPort);
 
       delay(2000);

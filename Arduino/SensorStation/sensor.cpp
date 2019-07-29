@@ -11,7 +11,8 @@
 
 Sensor::Sensor()
 {
-  memset(&historyEntries, 0, sizeof(historyEntries));
+  for(int i = 0; i < HISTORY_MAX_ENTRIES; i++)
+    historyEntries[i] = -1;
 }
 
 Sensor::~Sensor()
