@@ -10,15 +10,16 @@
 #include <Preferences.h>
 #include "connectivity.h"
 
+#define WIFI_CLIENT_NAME        "SensorStation"
 
 #define PREFERENCE_NAMESPACE    "sensors-wifi"
 #define MAX_CONNECTION_RETRIES  5
 
 #define ESP_WPS_MODE            WPS_TYPE_PBC
-#define ESP_MANUFACTURER        "Sensor Station"
+#define ESP_MANUFACTURER        "espressif"
 #define ESP_MODEL_NUMBER        "ESP32"
 #define ESP_MODEL_NAME          "ESPRESSIF IOT"
-#define ESP_DEVICE_NAME         "Sensor Station"
+#define ESP_DEVICE_NAME         WIFI_CLIENT_NAME
 
 static esp_wps_config_t       wpsConfiguration;
 static bool                   wpsStarted = false;
@@ -197,6 +198,9 @@ void Connectivity::wifiSystemEvent(WiFiEvent_t event, system_event_info_t info)
   {
     case SYSTEM_EVENT_STA_START:
       Serial.println("Station Mode Started");
+      if (!WiFi.setHostname(WIFI_CLIENT_NAME)) {
+        Serial.printf("*** could not set the host name to '%s'\n", WIFI_CLIENT_NAME);        
+      }
       break;
     case SYSTEM_EVENT_STA_GOT_IP:
       Serial.println("Connected to: " + String(WiFi.SSID()));
