@@ -12,7 +12,7 @@
 
 
 static const String APP_NAME("SensorStation");
-static const String APP_VERSION("0.2.0");
+static const String APP_VERSION("0.3.0");
 
 
 class App: public Buttons::Handler
