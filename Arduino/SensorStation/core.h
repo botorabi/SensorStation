@@ -30,6 +30,8 @@ class Core
 
     void              update();
 
+    void              enableOTAUpdate();
+
     void              startWPS();
 
     bool              isWPSActive() const;
@@ -74,6 +76,7 @@ class Core
 
     HTTPServer        httpServer;
     int               httpPort {80};
+    bool              otaUpdate {false};
 
     Display           display;
     int               displayOffTimeout {10000};

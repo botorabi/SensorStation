@@ -1,0 +1,222 @@
+	<!--NOTE The html head part is handled dynamically for adapting base href for handling x-forwarded-prefix ! -->
+	<meta charset="utf-8">
+	<title>Sensor Station / Update</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" type="image/x-icon" href="favicon.png">
+	<style>
+		html, body {
+			height: 99%;
+			width: 95%;
+			max-width: 1000px;
+			margin: auto;
+		 	font-family: "Libre Franklin", "Helvetica Neue", helvetica, arial, sans-serif;
+		}
+		.head {
+			background-color: #3f51b5;
+			border-top-left-radius: 10px;
+			border-top-right-radius: 10px;
+			text-align: left;
+			color: white;
+			margin-top: 10px;
+			margin-bottom: 5px;
+			padding: 20px;
+			box-shadow: 0px 2px 5px grey;
+			display: flex;
+			flex-direction: row;
+		}
+		.footer {
+			background-color: #3f51b5;
+			border-bottom-left-radius: 10px;
+			border-bottom-right-radius: 10px;
+			text-align: left;
+			color: white;
+			margin-top: 5px;
+			margin-bottom: 10px;
+			padding: 20px;
+			box-shadow: 0px 2px 5px grey;
+			display: flex;
+			flex-direction: row;
+		}
+		.footer-text {
+			font-size: 0.8em;
+		}
+		.main {
+			margin: 0 auto;
+			text-align: center;
+			border: 0px solid lightgrey;
+			border-radius: 0px;
+			padding: 20px;
+			background-color: white;
+			box-shadow: 0px 2px 5px grey;
+			color: black;
+		}
+		.title {
+			font-size: 1.8em;
+			font-weight: bold;
+		}
+		.subtitle {
+			font-size: 1.3em;
+			font-weight: bold;
+			margin-bottom: 0.8em;
+		}
+		.spacer-block {
+			flex: 1;
+		}
+		.file-container {
+			display: flex;
+			flex-direction: row;
+		}
+		.file-block {
+			min-width: 240px;
+			flex: 0 1 auto;
+			border: 1px solid grey;
+			border-radius: 5px;
+			background-color: #F5F5F5;
+			padding: 20px;
+			margin: 10px;
+			text-align: left;
+			box-shadow: 2px 2px 5px grey;
+		}
+		.file-block-row {
+			display: flex;
+			flex-direction: row;
+			margin-top: 20px;
+			width: 100%;
+		}
+		.button {
+			background-color: #555;
+			border: 1px solid #333;
+			border-radius: 3px;
+			color: white;
+			box-shadow: 2px 2px 2px gray;
+			cursor: pointer;
+		}
+		.button:focus {
+			outline: 0;
+		}
+		.button-update {
+			font-size: 14px;
+			padding: 8px;
+		}
+		.button-update:disabled {
+			background-color: #eee;
+			color: black;
+		}
+		.text-center {
+			text-align: center;
+		}
+		.hidden-block {
+			display: none;
+		}
+		@media(max-width: 800px) {
+			.title {
+				font-size: 1.3em;
+			}
+			.subtitle {
+				font-size: 1em;
+			}
+		}
+	</style>
+	<script>
+		var countDown = 10;
+		var updateResult = "@UPDATE_RESULT@";
+
+		function onUpdateClicked(element) {
+			var elementFileInput = document.getElementById("file");
+			if (!elementFileInput.files.length || !elementFileInput.files[0])
+				return;
+
+			element.disabled = true;
+			element.value = "Updating, Please Wait...";
+			var form = document.getElementById("input-form");
+			form.submit();
+		}
+
+		function homeCountDown() {
+				countDown--;
+				window.setTimeout(function() {
+						var elementHome = document.getElementById("return-to-home");
+						var elementHomeCountDown = document.getElementById("return-to-home-countdown");
+						if (countDown == 0) {
+							elementHome.classList.remove("hidden-block");
+							elementHomeCountDown.classList.add("hidden-block");
+						}
+						else {
+							elementHomeCountDown.innerHTML = '' + countDown;
+							homeCountDown();
+						}
+					},
+					1000);
+		}
+
+		function init() {
+			var blockFileChooser = document.getElementById("file-chooser");
+			var blockFail = document.getElementById("update-result-fail");
+			var blockSuccess = document.getElementById("update-result-success");
+			if (updateResult == "fail") {
+				blockFileChooser.classList.add("hidden-block");
+				blockFail.classList.remove("hidden-block");
+				blockSuccess.classList.add("hidden-block");
+			}
+			else if (updateResult == "success") {
+				blockFileChooser.classList.add("hidden-block");
+				blockFail.classList.add("hidden-block");
+				blockSuccess.classList.remove("hidden-block");
+				homeCountDown();
+			}
+		}
+	</script>
+</head>
+<body onload="init();">
+	<div class="head">
+		<span class="title">Sensor Station</span>
+		<span class="spacer-block"></span>
+		<img src="favicon.png" title="Title Image" width="40" height="40">
+	</div>
+	<div class="main">
+		<div class="subtitle">Firmware Update</div>
+		<br>
+		<div class="file-container" id="file-chooser">
+			<div class="spacer-block"></div>
+			<div class="file-block">
+				<form method='POST' action='/update' enctype='multipart/form-data' id='input-form'>
+					<div class="file-block-row">
+						<div style="display: flex; flex-direction: column;">
+							<span>Choose a Firmware File</span>
+							<br>
+							<input class="button" type='file' name='update' id="file">
+						</div>
+					</div>
+					<div class="file-block-row">
+						<div class="spacer-block"></div>
+						<input class="button button-update" type='submit' value="Start Update" onclick="onUpdateClicked(this)">
+						<div class="spacer-block"></div>
+					</div>
+				</form>
+			</div>
+			<div class="spacer-block"></div>
+		</div>
+		<div class="file-container hidden-block" id="update-result-success">
+			<div class="spacer-block"></div>
+			<div class="file-block text-center">
+				<div>Update Successful, Finalizing...</div>
+				<br>
+				<a href="/" id="return-to-home" class="hidden-block">Return to Home</a>
+				<span id="return-to-home-countdown">10</span>
+			</div>
+			<div class="spacer-block"></div>
+		</div>
+		<div class="file-container hidden-block" id="update-result-fail">
+			<div class="spacer-block"></div>
+			<div class="file-block text-center">
+				<div>Update failed! Check your firmware file.</div>
+				<br>
+				<a href="/update">Retry Update</a>
+			</div>
+			<div class="spacer-block"></div>
+		</div>
+	</div>
+	<div class="footer">
+		<span class="footer-text">Copyright 2019, A. Botorabi</span>
+		<span class="spacer-block"></span>
+	</div>

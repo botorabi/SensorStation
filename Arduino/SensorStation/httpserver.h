@@ -26,7 +26,9 @@ class HTTPServer
 
     void        setVersionInfo(const String& versionInfo);
 
-    void        start(int port);
+    void        start(int port, bool enableOTAUpdate = false);
+
+    void        update();
 
     bool        isRunning() const;
 
@@ -34,11 +36,17 @@ class HTTPServer
 
   protected:
 
+    void                    setupOTAUpdate();
+
     String                  extractBaseRefFromXHostHeader(AsyncWebServerRequest* request) const;
 
     static void             handleNotFound(AsyncWebServerRequest* request);
 
     void                    handleRoot(AsyncWebServerRequest* request);
+
+    void                    handleUpdate(AsyncWebServerRequest* request);
+
+    void                    handleUpdateResult(AsyncWebServerRequest* request, bool success);
 
     void                    handleSensorJSON(AsyncWebServerRequest* request);
 
@@ -50,9 +58,13 @@ class HTTPServer
 
     String                  indexFileContent;
 
+    String                  updateFileContent;
+
     int                     countSensors {0};
 
     String                  versionInfo;
+
+    long                    restartTime {-1};
 };
 
 #endif /* HTTPSERVER_H */

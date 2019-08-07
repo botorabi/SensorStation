@@ -12,7 +12,7 @@
 
 
 static const String APP_NAME("SensorStation");
-static const String APP_VERSION("0.3.0");
+static const String APP_VERSION("0.4.0");
 
 
 class App: public Buttons::Handler
@@ -25,6 +25,7 @@ class App: public Buttons::Handler
     static const int            INPUT_PIN_WPS = 19;
     static const int            INPUT_PIN_DISPLAY = 18;
     static const unsigned long  WPS_BUTTON_PRESS_TIME = 5 * 1000;
+    static const unsigned long  OTA_UPDATE_BUTTON_PRESS_TIME = 5 * 1000;
 
     void initialize()
     {
@@ -50,6 +51,8 @@ class App: public Buttons::Handler
     Buttons       buttons;
 
     unsigned long wpsButtonPressedTimeStamp {0};
+
+    unsigned long otaUpdateButtonPressedTimeStamp {0};
 
     void          onPressed(int pin);
 
@@ -91,6 +94,11 @@ void App::onPressed(int pin)
       break;
 
     case INPUT_PIN_DISPLAY:
+      if (otaUpdateButtonPressedTimeStamp == 0)
+      {
+        otaUpdateButtonPressedTimeStamp = millis();
+      }
+
       core.displayRestore();
       break;
   }      
@@ -117,4 +125,11 @@ void App::handleButtons()
       core.startWPS();
     }
   }  
+  else if (otaUpdateButtonPressedTimeStamp > 0)
+  {
+    if (millis() - otaUpdateButtonPressedTimeStamp > OTA_UPDATE_BUTTON_PRESS_TIME)
+    {
+      core.enableOTAUpdate();
+    }
+  }
 }

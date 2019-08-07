@@ -49,10 +49,6 @@ class Connectivity
 
   protected:
 
-    static void       storeCredentials(const String& ssid, const String& psk);
-
-    static void       restoreCredentials(String& ssid, String& psk);
-
     void              setupWPS();
 
     static void       wifiWPSEvent(WiFiEvent_t event, system_event_info_t info);

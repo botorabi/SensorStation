@@ -7,7 +7,9 @@
  */
 
 #include <Arduino.h>
+#include "settings.h"
 #include "core.h"
+
 
 static const unsigned long SENSOR_HISTORY_INTERVAL = 1000 * 60 * 60;
 
@@ -43,6 +45,7 @@ void Core::initialize(int httpPort, int displayOffTimeout)
 {
   this->httpPort = httpPort;
   this->displayOffTimeout = displayOffTimeout;
+  this->otaUpdate = Settings::loadOTAFlag();
 
   setupDisplay();
   delay(1000);
@@ -57,6 +60,14 @@ void Core::update()
   updateSensors();
   updateHTTPServer();
   display.update();
+}
+
+void Core::enableOTAUpdate()
+{
+  //! NOTE: we cannot restart the web server as it causes a crash, so we really have to reboot :-/
+  Settings::saveOTAFlag(true);
+  Serial.println("Reboot for enabling OTA update");
+  ESP.restart();
 }
 
 void Core::startWPS()
@@ -150,12 +161,23 @@ void Core::updateHTTPServer()
       display.setStatusText("Networking Established!");
       display.setFooterText(String("IP: ") + connectivity.localIP().toString());
 
-      Serial.println("Starting HTTP Server");
+      Serial.printf("Starting HTTP Server, OTA update %s \n", (otaUpdate ? "enabled" : "disabled"));
       httpServer.setVersionInfo(appVersion);
-      httpServer.start(httpPort);
+      httpServer.start(httpPort, otaUpdate);
+
+      if (otaUpdate)
+      {
+        displaySetStatus("OTA Update...");
+        otaUpdate = false;
+        Settings::saveOTAFlag(otaUpdate);
+      }
 
       delay(2000);
       updateSensorDisplay();
+    }
+    else
+    {
+      httpServer.update();
     }
   }
 }
@@ -196,7 +218,7 @@ void Core::addSensorEntry()
 
 void Core::updateSensorDisplay()
 {
-  if ((countSensors < 1) || isWPSActive())
+  if (otaUpdate || (countSensors < 1) || isWPSActive())
     return;
 
   String displayText;

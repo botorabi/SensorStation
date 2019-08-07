@@ -7,19 +7,19 @@
  */
 
 #include <Arduino.h>
-#include <Preferences.h>
 #include "connectivity.h"
+#include "settings.h"
+
 
 #define WIFI_CLIENT_NAME        "SensorStation"
-
-#define PREFERENCE_NAMESPACE    "sensors-wifi"
-#define MAX_CONNECTION_RETRIES  5
 
 #define ESP_WPS_MODE            WPS_TYPE_PBC
 #define ESP_MANUFACTURER        "espressif"
 #define ESP_MODEL_NUMBER        "ESP32"
 #define ESP_MODEL_NAME          "ESPRESSIF IOT"
 #define ESP_DEVICE_NAME         WIFI_CLIENT_NAME
+
+#define MAX_CONNECTION_RETRIES  5
 
 static esp_wps_config_t       wpsConfiguration;
 static bool                   wpsStarted = false;
@@ -47,8 +47,8 @@ bool Connectivity::connect()
 {
   uint8_t status;
   String ssid, psk;
-  
-  restoreCredentials(ssid, psk);
+
+  Settings::loadCredentials(ssid, psk);
 
   WiFi.mode(WIFI_MODE_STA);
   WiFi.onEvent(Connectivity::wifiSystemEvent);
@@ -78,35 +78,9 @@ bool Connectivity::connect()
   return status == WL_CONNECTED;
 }
 
-void Connectivity::storeCredentials(const String& ssid, const String& psk)
-{
-  Preferences preferences;
-  if (!preferences.begin(PREFERENCE_NAMESPACE, false))
-  {
-    Serial.println("*** Problem occurred while storing credentials!");
-    return;
-  }
-  preferences.putString("ssid", ssid);
-  preferences.putString("password", psk);
-  preferences.end();
-}
-
-void Connectivity::restoreCredentials(String& ssid, String& psk)
-{
-  Preferences preferences;
-  if (!preferences.begin(PREFERENCE_NAMESPACE, false))
-  {
-    Serial.println("*** Problem occurred while restoring credentials!");
-    return;
-  }
-  ssid = preferences.getString( "ssid", "");
-  psk = preferences.getString( "password", "");
-  preferences.end();
-}
-
 void Connectivity::startWPSConnection()
 {
-  storeCredentials("", "");
+  Settings::saveCredentials("", "");
   enable(true);
 
   WiFi.disconnect();
@@ -152,7 +126,7 @@ void Connectivity::wifiWPSEvent(WiFiEvent_t event, system_event_info_t info)
   {
     case SYSTEM_EVENT_STA_GOT_IP:
       Serial.printf("Storing credentials for SSID: %s\n", WiFi.SSID().c_str());
-      storeCredentials(WiFi.SSID(), WiFi.psk());
+      Settings::saveCredentials(WiFi.SSID(), WiFi.psk());
       //! NOTE Actually we just need to remove the WPS event registry, but it is not
       //       possible while dispatching an event. So we go the easierst way and reboot.
       Serial.println("Restarting the system...");
