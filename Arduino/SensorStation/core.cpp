@@ -45,7 +45,10 @@ void Core::initialize(int httpPort, int displayOffTimeout)
 {
   this->httpPort = httpPort;
   this->displayOffTimeout = displayOffTimeout;
-  this->otaUpdate = Settings::loadOTAFlag();
+
+  otaUpdate = Settings::loadOTAFlag();
+  if (otaUpdate)
+    Settings::saveOTAFlag(false);
 
   setupDisplay();
   delay(1000);
@@ -72,7 +75,8 @@ void Core::enableOTAUpdate()
 
 void Core::startWPS()
 {
-  display.setStatusText("Starting WPS...");
+  displaySetStatus("Starting WPS...", false);
+  displaySetFooter("");
   connectivity.startWPSConnection();
 }
 
@@ -86,9 +90,10 @@ void Core::displayTurn(bool on)
   display.turn(on);
 }
 
-void Core::displaySetStatus(const String& text)
+void Core::displaySetStatus(const String& text, bool toast)
 {
   display.setStatusText(text);
+  sensorDisplayUpdate = toast;
 }
 
 void Core::displaySetFooter(const String& text)
@@ -108,7 +113,8 @@ void Core::setupDisplay()
 
 void Core::displayRestore()
 {
-  updateSensorDisplay();  
+  sensorDisplayUpdate = true;
+  updateSensorDisplay();
 }
 
 void Core::setupWiFi()
@@ -167,9 +173,7 @@ void Core::updateHTTPServer()
 
       if (otaUpdate)
       {
-        displaySetStatus("OTA Update...");
-        otaUpdate = false;
-        Settings::saveOTAFlag(otaUpdate);
+        displaySetStatus("OTA Update Mode", false);
       }
 
       delay(2000);
@@ -218,7 +222,7 @@ void Core::addSensorEntry()
 
 void Core::updateSensorDisplay()
 {
-  if (otaUpdate || (countSensors < 1) || isWPSActive())
+  if (!sensorDisplayUpdate || (countSensors < 1))
     return;
 
   String displayText;
