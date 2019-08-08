@@ -30,13 +30,20 @@ class Core
 
     void              update();
 
+    void              enableOTAUpdate();
+
     void              startWPS();
 
     bool              isWPSActive() const;
 
     void              displayTurn(bool on);
 
-    void              displaySetStatus(const String& text);
+    /**
+     * Pass false for 'toast' in order to persist the given display text, otherwise the display text
+     * will be updated with sensor values on next update. If you pass false for 'toast' then use
+     * method displayRestore() in order to remove the text persistence.
+     */
+    void              displaySetStatus(const String& text, bool toast = true);
 
     void              displaySetFooter(const String& text);
 
@@ -69,11 +76,13 @@ class Core
     unsigned long     lastSensorValueUpdate {0};
     unsigned long     lastSensorDisplayUpdate {0};
     unsigned long     sensorDisplayInterval {2000};
+    bool              sensorDisplayUpdate {true};
 
     Connectivity      connectivity;
 
     HTTPServer        httpServer;
     int               httpPort {80};
+    bool              otaUpdate {false};
 
     Display           display;
     int               displayOffTimeout {10000};

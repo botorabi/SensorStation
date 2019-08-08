@@ -12,7 +12,7 @@
 
 
 static const String APP_NAME("SensorStation");
-static const String APP_VERSION("0.3.0");
+static const String APP_VERSION("0.4.0");
 
 
 class App: public Buttons::Handler
@@ -24,7 +24,10 @@ class App: public Buttons::Handler
 
     static const int            INPUT_PIN_WPS = 19;
     static const int            INPUT_PIN_DISPLAY = 18;
+    static const int            INPUT_PIN_OTA_UPDATE = INPUT_PIN_DISPLAY;
+
     static const unsigned long  WPS_BUTTON_PRESS_TIME = 5 * 1000;
+    static const unsigned long  OTA_UPDATE_BUTTON_PRESS_TIME = 5 * 1000;
 
     void initialize()
     {
@@ -50,6 +53,8 @@ class App: public Buttons::Handler
     Buttons       buttons;
 
     unsigned long wpsButtonPressedTimeStamp {0};
+
+    unsigned long otaUpdateButtonPressedTimeStamp {0};
 
     void          onPressed(int pin);
 
@@ -86,11 +91,16 @@ void App::onPressed(int pin)
       if (!core.isWPSActive() && (wpsButtonPressedTimeStamp == 0))
       {
         wpsButtonPressedTimeStamp = millis();
-        core.displaySetStatus("Hold WPS Button!");
+        core.displaySetStatus("Hold WPS Button!", false);
       }
       break;
 
-    case INPUT_PIN_DISPLAY:
+    case INPUT_PIN_OTA_UPDATE:
+      if (otaUpdateButtonPressedTimeStamp == 0)
+      {
+        otaUpdateButtonPressedTimeStamp = millis();
+      }
+
       core.displayRestore();
       break;
   }      
@@ -98,12 +108,18 @@ void App::onPressed(int pin)
 
 void App::onReleased(int pin)
 {
-  if (pin == INPUT_PIN_WPS)
+  switch(pin)
   {
-    if ((wpsButtonPressedTimeStamp > 0) && (millis() - wpsButtonPressedTimeStamp < WPS_BUTTON_PRESS_TIME))
-      core.displayRestore();
+    case INPUT_PIN_WPS:
+      if ((wpsButtonPressedTimeStamp > 0) && (millis() - wpsButtonPressedTimeStamp < WPS_BUTTON_PRESS_TIME))
+        core.displayRestore();
+  
+      wpsButtonPressedTimeStamp = 0;
+      break;
 
-    wpsButtonPressedTimeStamp = 0;
+    case INPUT_PIN_OTA_UPDATE:
+      otaUpdateButtonPressedTimeStamp = 0;
+      break;
   }
 }
 
@@ -117,4 +133,11 @@ void App::handleButtons()
       core.startWPS();
     }
   }  
+  else if (otaUpdateButtonPressedTimeStamp > 0)
+  {
+    if (millis() - otaUpdateButtonPressedTimeStamp > OTA_UPDATE_BUTTON_PRESS_TIME)
+    {
+      core.enableOTAUpdate();
+    }
+  }
 }

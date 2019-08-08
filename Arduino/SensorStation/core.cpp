@@ -7,7 +7,9 @@
  */
 
 #include <Arduino.h>
+#include "settings.h"
 #include "core.h"
+
 
 static const unsigned long SENSOR_HISTORY_INTERVAL = 1000 * 60 * 60;
 
@@ -44,6 +46,10 @@ void Core::initialize(int httpPort, int displayOffTimeout)
   this->httpPort = httpPort;
   this->displayOffTimeout = displayOffTimeout;
 
+  otaUpdate = Settings::loadOTAFlag();
+  if (otaUpdate)
+    Settings::saveOTAFlag(false);
+
   setupDisplay();
   delay(1000);
   setupSensors();
@@ -59,9 +65,18 @@ void Core::update()
   display.update();
 }
 
+void Core::enableOTAUpdate()
+{
+  //! NOTE: we cannot restart the web server as it causes a crash, so we really have to reboot :-/
+  Settings::saveOTAFlag(true);
+  Serial.println("Reboot for enabling OTA update");
+  ESP.restart();
+}
+
 void Core::startWPS()
 {
-  display.setStatusText("Starting WPS...");
+  displaySetStatus("Starting WPS...", false);
+  displaySetFooter("");
   connectivity.startWPSConnection();
 }
 
@@ -75,9 +90,10 @@ void Core::displayTurn(bool on)
   display.turn(on);
 }
 
-void Core::displaySetStatus(const String& text)
+void Core::displaySetStatus(const String& text, bool toast)
 {
   display.setStatusText(text);
+  sensorDisplayUpdate = toast;
 }
 
 void Core::displaySetFooter(const String& text)
@@ -97,7 +113,8 @@ void Core::setupDisplay()
 
 void Core::displayRestore()
 {
-  updateSensorDisplay();  
+  sensorDisplayUpdate = true;
+  updateSensorDisplay();
 }
 
 void Core::setupWiFi()
@@ -150,12 +167,21 @@ void Core::updateHTTPServer()
       display.setStatusText("Networking Established!");
       display.setFooterText(String("IP: ") + connectivity.localIP().toString());
 
-      Serial.println("Starting HTTP Server");
+      Serial.printf("Starting HTTP Server, OTA update %s \n", (otaUpdate ? "enabled" : "disabled"));
       httpServer.setVersionInfo(appVersion);
-      httpServer.start(httpPort);
+      httpServer.start(httpPort, otaUpdate);
+
+      if (otaUpdate)
+      {
+        displaySetStatus("OTA Update Mode", false);
+      }
 
       delay(2000);
       updateSensorDisplay();
+    }
+    else
+    {
+      httpServer.update();
     }
   }
 }
@@ -196,7 +222,7 @@ void Core::addSensorEntry()
 
 void Core::updateSensorDisplay()
 {
-  if ((countSensors < 1) || isWPSActive())
+  if (!sensorDisplayUpdate || (countSensors < 1))
     return;
 
   String displayText;

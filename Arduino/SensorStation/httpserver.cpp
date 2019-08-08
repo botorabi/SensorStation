@@ -7,9 +7,11 @@
  */
 
 #include <Arduino.h>
+#include <Update.h>
 #include "httpserver.h"
 #include "resources/html_index.h"
 #include "resources/html_index_head.h"
+#include "resources/html_update.h"
 #include "resources/html_favicon.h"
 
 
@@ -52,7 +54,7 @@ void HTTPServer::setVersionInfo(const String& versionInfo)
   this->versionInfo = versionInfo;
 }
 
-void HTTPServer::start(int port)
+void HTTPServer::start(int port, bool enableOTAUpdate)
 {
   stop();
 
@@ -61,7 +63,23 @@ void HTTPServer::start(int port)
   webServer->on("/sensors.json", HTTP_GET, [this](AsyncWebServerRequest* request) { handleSensorJSON(request); });
   webServer->on("/favicon.png", HTTP_GET, [this](AsyncWebServerRequest* request) { handleFavIcon(request); });
   webServer->onNotFound(handleNotFound);
+
+  if (enableOTAUpdate)
+  {
+    Serial.println("OTA Updating enabled, update link: '/update'");
+    setupOTAUpdate();
+  }
+
   webServer->begin();
+}
+
+void HTTPServer::update()
+{
+  if ((restartTime > 0) && restartTime < millis())
+  {
+    Serial.println("Performing scheduled restart after firmware update");
+    ESP.restart();
+  }
 }
 
 bool HTTPServer::isRunning() const
@@ -78,6 +96,45 @@ void HTTPServer::stop()
   }
 
   webServer = nullptr;
+}
+
+void HTTPServer::setupOTAUpdate()
+{
+  for (int i = 0; i < update_html_len; i++)
+    updateFileContent += static_cast<char>(update_html[i]);
+
+  webServer->on("/update", HTTP_GET, [this](AsyncWebServerRequest* request) { handleUpdate(request); });
+
+  webServer->on("/update", HTTP_POST, [this](AsyncWebServerRequest* request) {
+    handleUpdateResult(request, !Update.hasError());
+    Serial.printf("Update %s\n", (!Update.hasError() ? "successful" : "failed!"));
+
+    if (!Update.hasError())
+    {
+      Serial.printf("Rebooting...");
+      restartTime = millis() + 1000;
+    }
+
+  }, [](AsyncWebServerRequest* request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if (!index)
+    {
+      Serial.printf("Update Start: %s\n", filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+        Update.printError(Serial);
+    }
+    if (!Update.hasError())
+    {
+      if (Update.write(data, len) != len)
+        Update.printError(Serial);
+    }
+    if (final)
+    {
+      if (Update.end(true))
+        Serial.printf("Written bytes: %u\n", index+len);
+      else
+        Update.printError(Serial);
+    }
+  });
 }
 
 String HTTPServer::extractBaseRefFromXHostHeader(AsyncWebServerRequest* request) const
@@ -116,6 +173,24 @@ void HTTPServer::handleRoot(AsyncWebServerRequest* request)
   request->send(200, "text/html", html);
 }
 
+void HTTPServer::handleUpdate(AsyncWebServerRequest* request)
+{
+  String html = html_index_head;
+  html.replace("@HREF@", extractBaseRefFromXHostHeader(request));
+  html += updateFileContent;  
+  html.replace("@UPDATE_RESULT@", "none");
+  request->send(200, "text/html", html);
+}
+
+void HTTPServer::handleUpdateResult(AsyncWebServerRequest* request, bool success)
+{
+  String html = html_index_head;
+  html.replace("@HREF@", extractBaseRefFromXHostHeader(request));
+  html += updateFileContent;  
+  html.replace("@UPDATE_RESULT@", success ? "success" : "fail");
+  request->send(200, "text/html", html);
+}
+
 void HTTPServer::handleSensorJSON(AsyncWebServerRequest* request)
 {
   String json;
@@ -139,6 +214,5 @@ void HTTPServer::handleSensorJSON(AsyncWebServerRequest* request)
 
 void HTTPServer::handleFavIcon(AsyncWebServerRequest* request)
 {
-  
   request->send_P(200, "image/png", favicon_png, favicon_png_len);
 }
