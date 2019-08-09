@@ -9,20 +9,21 @@
                        https://vr-fun.net
 
 
-# SensorStation
+# Sensor Station
 
-**SensorStation** is an Arduino project developed and tested on an ESP32 module and allows the storage and access to sensor data.
+**Sensor Station** is an Arduino project developed and tested on an ESP32 module and allows the storage and access to sensor data.
 The project supports an OLED display and two input buttons: one for starting WPS and one for turning on the OLED display. Hold the WPS
 button pressed to connect SensorStation to a WiFi network using WPS.
 An embedded webserver provides a REST API and web page for accessing the data.
 It is possible to put the webserver behind a reverse-proxy, the webserver is aware of *X-Forwarded-Prefix* in HTML request header.
 It is an easy task to integrate the SensorStation in  [HomieCenter](https://github.com/botorabi/HomieCenter).
 
+Visit Sensor Station also on [HACKADAY.IO](https://hackaday.io/project/167018-sensor-station) and [hackster.io](https://www.hackster.io/botorabi/sensor-station-096164).
 
 # Updating Over The Air (OTA Update)
 
 For updating the firmware a new image file can be flashed using Over The Air (OTA) updating mechanism. Hold the Display button pressed until
-SensorStation restarts into OTA Update Mode, then visit the web page /update and upload your firmware image. After updating, SensorStation
+SensorStation restarts into OTA Update Mode, then visit the web page /update and upload your firmware image. After updating, Sensor Station
 will reboot into normal operation mode. Be aware that -- for the sake of security -- while being in normal mode the /update page will not
 be available, so you will need physical access to the device and press & hold the display button to enable the OTA Update Mode.
 One way to create an firmware image file is using the utility provided in menu entry *Sketch/Export compiled Binary* of Arduino IDE.
@@ -49,7 +50,7 @@ in the folder *Arduino/SensorStation/resources* after changing any HTML file. It
 ![SensorStation](https://user-images.githubusercontent.com/11502867/62707392-8e780d00-b9f1-11e9-8d24-ee39036e8f0d.png)
 
 ## Firmware Update using OTA
-![SensorStation-OTA-Update](https://user-images.githubusercontent.com/11502867/62707894-82407f80-b9f2-11e9-8da4-25331ddee3c0.png)
+![Sensor Station-OTA-Update](https://user-images.githubusercontent.com/11502867/62707894-82407f80-b9f2-11e9-8da4-25331ddee3c0.png)
 
 ## SensorStation in Prototype Housing
 ![2019-08-08 15 23 04](https://user-images.githubusercontent.com/11502867/62707185-3d681900-b9f1-11e9-88d2-ff9563ca861c.jpg)
