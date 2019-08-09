@@ -47,7 +47,7 @@ in the folder *Arduino/SensorStation/resources* after changing any HTML file. It
 # Screenshots
 
 ## Sensor Value History
-![SensorStation](https://user-images.githubusercontent.com/11502867/62707392-8e780d00-b9f1-11e9-8d24-ee39036e8f0d.png)
+![SensorStation](https://user-images.githubusercontent.com/11502867/62778943-1887aa80-bab2-11e9-9c4e-9a9738015983.png)
 
 ## Firmware Update using OTA
 ![Sensor Station-OTA-Update](https://user-images.githubusercontent.com/11502867/62707894-82407f80-b9f2-11e9-8da4-25331ddee3c0.png)
