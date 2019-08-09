@@ -398,7 +398,7 @@
 		function periodicUpdate() {
 			updateSensors();
 			var date = new Date();
-			var dateString = "" + date.getDate() + "." + date.getMonth() + "." + date.getFullYear();
+			var dateString = "" + date.getDate() + "." + (date.getMonth() + 1) + "." + date.getFullYear();
 			dateString += "  " + getTwoDigitString(date.getHours()) + ":" + getTwoDigitString(date.getMinutes()) + ":" + getTwoDigitString(date.getSeconds());
 			var elemUpdateTime = document.getElementById("update-time");
 			elemUpdateTime.innerHTML = dateString;
